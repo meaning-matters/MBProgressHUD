@@ -44,6 +44,10 @@
 		[self.buttons setValue:nil forKey:@"backgroundColor"];
 	}
 	((UIScrollView *)self.view).contentSize = content.bounds.size;
+	
+	// Examples of setting an app-wide default using iOS UIAppearance.
+	[[MBProgressHUD appearance] setActivityIndicatorColor:[UIColor redColor]];
+	[[MBBarProgressView appearance] setProgressRemainingColor:[UIColor orangeColor]];
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
@@ -53,11 +57,6 @@
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
 	UIView *content = [[self.view subviews] objectAtIndex:0];
 	((UIScrollView *)self.view).contentSize = content.bounds.size;
-}
-
-- (void)dealloc {
-	[_buttons release];
-	[super dealloc];
 }
 
 #pragma mark - Actions
@@ -148,7 +147,7 @@
 	
 	// The sample image is based on the work by http://www.pixelpressicons.com, http://creativecommons.org/licenses/by/2.5/ca/
 	// Make the customViews 37 by 37 pixels for best results (those are the bounds of the build-in progress indicators)
-	HUD.customView = [[[UIImageView alloc] initWithImage:[UIImage imageNamed:@"37x-Checkmark.png"]] autorelease];
+	HUD.customView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"37x-Checkmark.png"]];
 	
 	// Set custom view mode
 	HUD.mode = MBProgressHUDModeCustomView;
@@ -173,7 +172,6 @@
 }
 
 - (IBAction)showUsingBlocks:(id)sender {
-#if NS_BLOCKS_AVAILABLE
 	MBProgressHUD *hud = [[MBProgressHUD alloc] initWithView:self.navigationController.view];
 	[self.navigationController.view addSubview:hud];
 	hud.labelText = @"With a block";
@@ -182,9 +180,7 @@
 		[self myTask];
 	} completionBlock:^{
 		[hud removeFromSuperview];
-		[hud release];
 	}];
-#endif
 }
 
 - (IBAction)showOnWindow:(id)sender {
@@ -204,9 +200,8 @@
 	
 	NSURLConnection *connection = [[NSURLConnection alloc] initWithRequest:request delegate:self];
 	[connection start];
-	[connection release];
 	
-	HUD = [[MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES] retain];
+	HUD = [MBProgressHUD showHUDAddedTo:self.navigationController.view animated:YES];
 	HUD.delegate = self;
 }
 
@@ -289,7 +284,7 @@
 		UIImage *image = [UIImage imageNamed:@"37x-Checkmark.png"];
 		imageView = [[UIImageView alloc] initWithImage:image];
 	});
-	HUD.customView = [imageView autorelease];
+	HUD.customView = imageView;
 	HUD.mode = MBProgressHUDModeCustomView;
 	HUD.labelText = @"Completed";
 	sleep(2);
@@ -309,7 +304,7 @@
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection {
-	HUD.customView = [[[UIImageView alloc] initWithImage:[UIImage imageNamed:@"37x-Checkmark.png"]] autorelease];
+	HUD.customView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"37x-Checkmark.png"]];
 	HUD.mode = MBProgressHUDModeCustomView;
 	[HUD hide:YES afterDelay:2];
 }
@@ -323,7 +318,6 @@
 - (void)hudWasHidden:(MBProgressHUD *)hud {
 	// Remove HUD from screen when the HUD was hidded
 	[HUD removeFromSuperview];
-	[HUD release];
 	HUD = nil;
 }
 

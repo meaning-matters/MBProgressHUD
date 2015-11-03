@@ -8,16 +8,6 @@
 #import <tgmath.h>
 
 
-#if __has_feature(objc_arc)
-	#define MB_AUTORELEASE(exp) exp
-	#define MB_RELEASE(exp) exp
-	#define MB_RETAIN(exp) exp
-#else
-	#define MB_AUTORELEASE(exp) [exp autorelease]
-	#define MB_RELEASE(exp) [exp release]
-	#define MB_RETAIN(exp) [exp retain]
-#endif
-
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= 60000
     #define MBLabelAlignmentCenter NSTextAlignmentCenter
 #else
@@ -49,6 +39,47 @@
 #endif
 
 
+
+/*
+ *  Macro (plus 'private' helper) that expands the argument `x` to an Objective-C literal
+ *  string `@"x"`.  This is used in the `AppearanceProperty()` macro below.
+ */
+#define StringizeHelper(x) #x
+#define Stringize(x) @StringizeHelper(x)
+
+/*
+ *  Macro that expands in the code needed for a property to be set via iOS appearance.
+ *  The KVO method calls in `setter:` are required because this modules uses KVO on
+ *  quite a number of the properties.
+ *
+ *  Some UIAppearance references:
+ *      http://petersteinberger.com/blog/2013/uiappearance-for-custom-views/
+ *      http://www.malolans.com/2014/04/11/uiappearance-and-default-styles/
+ *      https://developer.apple.com/library/ios/documentation/UIKit/Reference/UIAppearance_Protocol/index.html
+ *
+ *  @param type    Type of the property (e.g. `NSString*`).
+ *  @param name    Name of the property (e.g. `labelText`).
+ *  @param getter  Getter method identifier; often identical to `name` (e.g. `isSquare`).
+ *  @param setter  Setter method identifier (e.g. `setXOffset`).
+ *  @param value   Value set in the setter; often identical to `name` (e.g. `[labelText copy]`).
+ */
+#define AppearanceProperty(type, name, getter, setter, value)   \
+    @synthesize name = _ ## name;                               \
+                                                                \
+    - (type)getter                                              \
+    {                                                           \
+        return _ ## name;                                       \
+    }                                                           \
+                                                                \
+    - (void)setter:(type)name                                   \
+    {                                                           \
+        @synchronized(self) {                                   \
+            [self willChangeValueForKey:Stringize(name)];       \
+            _ ## name = value;                                  \
+            [self didChangeValueForKey:Stringize(name)];        \
+        }                                                       \
+    }
+
 static const CGFloat kPadding = 4.f;
 static const CGFloat kLabelFontSize = 16.f;
 static const CGFloat kDetailsLabelFontSize = 12.f;
@@ -65,10 +96,10 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	CGAffineTransform rotationTransform;
 }
 
-@property (atomic, MB_STRONG) UIView *indicator;
-@property (atomic, MB_STRONG) NSTimer *graceTimer;
-@property (atomic, MB_STRONG) NSTimer *minShowTimer;
-@property (atomic, MB_STRONG) NSDate *showStarted;
+@property (atomic, strong) UIView *indicator;
+@property (atomic, strong) NSTimer *graceTimer;
+@property (atomic, strong) NSTimer *minShowTimer;
+@property (atomic, strong) NSDate *showStarted;
 
 @end
 
@@ -77,38 +108,28 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 #pragma mark - Properties
 
-@synthesize animationType;
-@synthesize delegate;
-@synthesize opacity;
-@synthesize color;
-@synthesize labelFont;
-@synthesize labelColor;
-@synthesize detailsLabelFont;
-@synthesize detailsLabelColor;
-@synthesize indicator;
-@synthesize xOffset;
-@synthesize yOffset;
-@synthesize minSize;
-@synthesize square;
-@synthesize margin;
-@synthesize dimBackground;
-@synthesize graceTime;
-@synthesize minShowTime;
-@synthesize graceTimer;
-@synthesize minShowTimer;
-@synthesize taskInProgress;
-@synthesize removeFromSuperViewOnHide;
-@synthesize customView;
-@synthesize showStarted;
-@synthesize mode;
-@synthesize labelText;
-@synthesize detailsLabelText;
-@synthesize progress;
-@synthesize size;
-@synthesize activityIndicatorColor;
-#if NS_BLOCKS_AVAILABLE
-@synthesize completionBlock;
-#endif
+AppearanceProperty(MBProgressHUDAnimation, animationType, animationType, setAnimationType, animationType)
+AppearanceProperty(CGFloat, opacity, opacity, setOpacity, opacity)
+AppearanceProperty(UIColor*, color, color, setColor, color)
+AppearanceProperty(UIFont*, labelFont, labelFont, setLabelFont, labelFont)
+AppearanceProperty(UIColor*, labelColor, labelColor, setLabelColor, labelColor)
+AppearanceProperty(UIFont*, detailsLabelFont, detailsLabelFont, setDetailsLabelFont, detailsLabelFont)
+AppearanceProperty(UIColor*, detailsLabelColor, detailsLabelColor, setDetailsLabelColor, detailsLabelColor)
+AppearanceProperty(CGFloat, xOffset, xOffset, setXOffset, xOffset)
+AppearanceProperty(CGFloat, yOffset, yOffset, setYOffset, yOffset)
+AppearanceProperty(CGSize, minSize, minSize, setMinSize, minSize)
+AppearanceProperty(CGFloat, cornerRadius, cornerRadius, setCornerRadius, cornerRadius)
+AppearanceProperty(NSUInteger, square, isSquare, setSquare, square)
+AppearanceProperty(CGFloat, margin, margin, setMargin, margin)
+AppearanceProperty(NSUInteger, dimBackground, dimBackground, setDimBackground, dimBackground)
+AppearanceProperty(CGFloat, graceTime, graceTime, setGraceTime, graceTime)
+AppearanceProperty(CGFloat, minShowTime, minShowTime, setMinShowTime, minShowTime)
+AppearanceProperty(MBProgressHUDMode, mode, mode, setMode, mode)
+AppearanceProperty(NSString*, labelText, labelText, setLabelText, [labelText copy])
+AppearanceProperty(NSString*, detailsLabelText, detailsLabelText, setDetailsLabelText, [detailsLabelText copy])
+AppearanceProperty(NSUInteger, removeFromSuperViewOnHide, removeFromSuperViewOnHide, setRemoveFromSuperViewOnHide, removeFromSuperViewOnHide)
+AppearanceProperty(UIColor*, activityIndicatorColor, activityIndicatorColor, setActivityIndicatorColor, activityIndicatorColor)
+
 
 #pragma mark - Class methods
 
@@ -117,7 +138,7 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	hud.removeFromSuperViewOnHide = YES;
 	[view addSubview:hud];
 	[hud show:animated];
-	return MB_AUTORELEASE(hud);
+	return hud;
 }
 
 + (BOOL)hideHUDForView:(UIView *)view animated:(BOOL)animated {
@@ -165,28 +186,30 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 - (id)initWithFrame:(CGRect)frame {
 	self = [super initWithFrame:frame];
 	if (self) {
-		// Set default values for properties
-		self.animationType = MBProgressHUDAnimationFade;
-		self.mode = MBProgressHUDModeIndeterminate;
-		self.labelText = nil;
-		self.detailsLabelText = nil;
-		self.opacity = 0.8f;
-		self.color = nil;
-		self.labelFont = [UIFont boldSystemFontOfSize:kLabelFontSize];
-		self.labelColor = [UIColor whiteColor];
-		self.detailsLabelFont = [UIFont boldSystemFontOfSize:kDetailsLabelFontSize];
-		self.detailsLabelColor = [UIColor whiteColor];
-		self.activityIndicatorColor = [UIColor whiteColor];
-		self.xOffset = 0.0f;
-		self.yOffset = 0.0f;
-		self.dimBackground = NO;
-		self.margin = 20.0f;
-		self.cornerRadius = 10.0f;
-		self.graceTime = 0.0f;
-		self.minShowTime = 0.0f;
-		self.removeFromSuperViewOnHide = NO;
-		self.minSize = CGSizeZero;
-		self.square = NO;
+		// Set default values for appearance properties.  Need to set ivars to make
+        // sure that UIAppearance logic sets the values.
+		_animationType = MBProgressHUDAnimationFade;
+		_mode = MBProgressHUDModeIndeterminate;
+		_labelText = nil;
+		_detailsLabelText = nil;
+		_opacity = 0.8f;
+		_color = nil;
+		_labelFont = [UIFont boldSystemFontOfSize:kLabelFontSize];
+		_labelColor = [UIColor whiteColor];
+		_detailsLabelFont = [UIFont boldSystemFontOfSize:kDetailsLabelFontSize];
+		_detailsLabelColor = [UIColor whiteColor];
+		_activityIndicatorColor = [UIColor whiteColor];
+		_xOffset = 0.0f;
+		_yOffset = 0.0f;
+		_dimBackground = NO;
+		_margin = 20.0f;
+		_cornerRadius = 10.0f;
+		_graceTime = 0.0f;
+		_minShowTime = 0.0f;
+		_removeFromSuperViewOnHide = NO;
+		_minSize = CGSizeZero;
+		_square = NO;
+        
 		self.contentMode = UIViewContentModeCenter;
 		self.autoresizingMask = UIViewAutoresizingFlexibleTopMargin | UIViewAutoresizingFlexibleBottomMargin
 								| UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
@@ -197,7 +220,7 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 		// Make it invisible for now
 		self.alpha = 0.0f;
 		
-		taskInProgress = NO;
+		_taskInProgress = NO;
 		rotationTransform = CGAffineTransformIdentity;
 		
 		[self setupLabels];
@@ -220,26 +243,6 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 - (void)dealloc {
 	[self unregisterFromNotifications];
 	[self unregisterFromKVO];
-#if !__has_feature(objc_arc)
-	[color release];
-	[indicator release];
-	[label release];
-	[detailsLabel release];
-	[labelText release];
-	[detailsLabelText release];
-	[graceTimer release];
-	[minShowTimer release];
-	[showStarted release];
-	[customView release];
-	[labelFont release];
-	[labelColor release];
-	[detailsLabelFont release];
-	[detailsLabelColor release];
-#if NS_BLOCKS_AVAILABLE
-	[completionBlock release];
-#endif
-	[super dealloc];
-#endif
 }
 
 #pragma mark - Show & hide
@@ -264,8 +267,8 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	useAnimation = animated;
 	// If the minShow time is set, calculate how long the hud was shown,
 	// and pospone the hiding operation if necessary
-	if (self.minShowTime > 0.0 && showStarted) {
-		NSTimeInterval interv = [[NSDate date] timeIntervalSinceDate:showStarted];
+	if (self.minShowTime > 0.0 && _showStarted) {
+		NSTimeInterval interv = [[NSDate date] timeIntervalSinceDate:_showStarted];
 		if (interv < self.minShowTime) {
 			self.minShowTimer = [NSTimer scheduledTimerWithTimeInterval:(self.minShowTime - interv) target:self 
 								selector:@selector(handleMinShowTimer:) userInfo:nil repeats:NO];
@@ -288,7 +291,7 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 - (void)handleGraceTimer:(NSTimer *)theTimer {
 	// Show the HUD only if the task is still running
-	if (taskInProgress) {
+	if (_taskInProgress) {
 		[self showUsingAnimation:useAnimation];
 	}
 }
@@ -310,9 +313,9 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
     [NSObject cancelPreviousPerformRequestsWithTarget:self];
     [self setNeedsDisplay];
 
-	if (animated && animationType == MBProgressHUDAnimationZoomIn) {
+	if (animated && _animationType == MBProgressHUDAnimationZoomIn) {
 		self.transform = CGAffineTransformConcat(rotationTransform, CGAffineTransformMakeScale(0.5f, 0.5f));
-	} else if (animated && animationType == MBProgressHUDAnimationZoomOut) {
+	} else if (animated && _animationType == MBProgressHUDAnimationZoomOut) {
 		self.transform = CGAffineTransformConcat(rotationTransform, CGAffineTransformMakeScale(1.5f, 1.5f));
 	}
 	self.showStarted = [NSDate date];
@@ -321,7 +324,7 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 		[UIView beginAnimations:nil context:NULL];
 		[UIView setAnimationDuration:0.30];
 		self.alpha = 1.0f;
-		if (animationType == MBProgressHUDAnimationZoomIn || animationType == MBProgressHUDAnimationZoomOut) {
+		if (_animationType == MBProgressHUDAnimationZoomIn || _animationType == MBProgressHUDAnimationZoomOut) {
 			self.transform = rotationTransform;
 		}
 		[UIView commitAnimations];
@@ -333,16 +336,16 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 - (void)hideUsingAnimation:(BOOL)animated {
 	// Fade out
-	if (animated && showStarted) {
+	if (animated && _showStarted) {
 		[UIView beginAnimations:nil context:NULL];
 		[UIView setAnimationDuration:0.30];
 		[UIView setAnimationDelegate:self];
 		[UIView setAnimationDidStopSelector:@selector(animationFinished:finished:context:)];
 		// 0.02 prevents the hud from passing through touches during the animation the hud will get completely hidden
 		// in the done method
-		if (animationType == MBProgressHUDAnimationZoomIn) {
+		if (_animationType == MBProgressHUDAnimationZoomIn) {
 			self.transform = CGAffineTransformConcat(rotationTransform, CGAffineTransformMakeScale(1.5f, 1.5f));
-		} else if (animationType == MBProgressHUDAnimationZoomOut) {
+		} else if (_animationType == MBProgressHUDAnimationZoomOut) {
 			self.transform = CGAffineTransformConcat(rotationTransform, CGAffineTransformMakeScale(0.5f, 0.5f));
 		}
 
@@ -364,17 +367,17 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	[NSObject cancelPreviousPerformRequestsWithTarget:self];
 	isFinished = YES;
 	self.alpha = 0.0f;
-	if (removeFromSuperViewOnHide) {
+	if (_removeFromSuperViewOnHide) {
 		[self removeFromSuperview];
 	}
-#if NS_BLOCKS_AVAILABLE
+    
 	if (self.completionBlock) {
 		self.completionBlock();
 		self.completionBlock = NULL;
 	}
-#endif
-	if ([delegate respondsToSelector:@selector(hudWasHidden:)]) {
-		[delegate performSelector:@selector(hudWasHidden:) withObject:self];
+
+    if ([_delegate respondsToSelector:@selector(hudWasHidden:)]) {
+		[_delegate performSelector:@selector(hudWasHidden:) withObject:self];
 	}
 }
 
@@ -382,16 +385,14 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 - (void)showWhileExecuting:(SEL)method onTarget:(id)target withObject:(id)object animated:(BOOL)animated {
 	methodForExecution = method;
-	targetForExecution = MB_RETAIN(target);
-	objectForExecution = MB_RETAIN(object);	
+	targetForExecution = target;
+	objectForExecution = object;
 	// Launch execution in new thread
 	self.taskInProgress = YES;
 	[NSThread detachNewThreadSelector:@selector(launchExecution) toTarget:self withObject:nil];
 	// Show HUD view
 	[self show:animated];
 }
-
-#if NS_BLOCKS_AVAILABLE
 
 - (void)showAnimated:(BOOL)animated whileExecutingBlock:(dispatch_block_t)block {
 	dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -420,8 +421,6 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	[self show:animated];
 }
 
-#endif
-
 - (void)launchExecution {
 	@autoreleasepool {
 #pragma clang diagnostic push
@@ -436,15 +435,12 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 }
 
 - (void)cleanUp {
-	taskInProgress = NO;
-#if !__has_feature(objc_arc)
-	[targetForExecution release];
-	[objectForExecution release];
-#else
-	targetForExecution = nil;
+	_taskInProgress = NO;
+	
+    targetForExecution = nil;
 	objectForExecution = nil;
-#endif
-	[self hide:useAnimation];
+
+    [self hide:useAnimation];
 }
 
 #pragma mark - UI
@@ -475,46 +471,44 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 - (void)updateIndicators {
 	
-	BOOL isActivityIndicator = [indicator isKindOfClass:[UIActivityIndicatorView class]];
-	BOOL isRoundIndicator = [indicator isKindOfClass:[MBRoundProgressView class]];
+	BOOL isActivityIndicator = [_indicator isKindOfClass:[UIActivityIndicatorView class]];
+	BOOL isRoundIndicator = [_indicator isKindOfClass:[MBRoundProgressView class]];
 	
-	if (mode == MBProgressHUDModeIndeterminate) {
+	if (_mode == MBProgressHUDModeIndeterminate) {
 		if (!isActivityIndicator) {
 			// Update to indeterminate indicator
-			[indicator removeFromSuperview];
-			self.indicator = MB_AUTORELEASE([[UIActivityIndicatorView alloc]
-											 initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge]);
-			[(UIActivityIndicatorView *)indicator startAnimating];
-			[self addSubview:indicator];
+			[_indicator removeFromSuperview];
+			self.indicator = [[UIActivityIndicatorView alloc]
+											 initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+			[(UIActivityIndicatorView *)_indicator startAnimating];
+			[self addSubview:_indicator];
 		}
-#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 50000
-		[(UIActivityIndicatorView *)indicator setColor:self.activityIndicatorColor];
-#endif
+		[(UIActivityIndicatorView *)_indicator setColor:self.activityIndicatorColor];
 	}
-	else if (mode == MBProgressHUDModeDeterminateHorizontalBar) {
+	else if (_mode == MBProgressHUDModeDeterminateHorizontalBar) {
 		// Update to bar determinate indicator
-		[indicator removeFromSuperview];
-		self.indicator = MB_AUTORELEASE([[MBBarProgressView alloc] init]);
-		[self addSubview:indicator];
+		[_indicator removeFromSuperview];
+		self.indicator = [[MBBarProgressView alloc] init];
+		[self addSubview:_indicator];
 	}
-	else if (mode == MBProgressHUDModeDeterminate || mode == MBProgressHUDModeAnnularDeterminate) {
+	else if (_mode == MBProgressHUDModeDeterminate || _mode == MBProgressHUDModeAnnularDeterminate) {
 		if (!isRoundIndicator) {
 			// Update to determinante indicator
-			[indicator removeFromSuperview];
-			self.indicator = MB_AUTORELEASE([[MBRoundProgressView alloc] init]);
-			[self addSubview:indicator];
+			[_indicator removeFromSuperview];
+			self.indicator = [[MBRoundProgressView alloc] init];
+			[self addSubview:_indicator];
 		}
-		if (mode == MBProgressHUDModeAnnularDeterminate) {
-			[(MBRoundProgressView *)indicator setAnnular:YES];
+		if (_mode == MBProgressHUDModeAnnularDeterminate) {
+			[(MBRoundProgressView *)_indicator setAnnular:YES];
 		}
 	} 
-	else if (mode == MBProgressHUDModeCustomView && customView != indicator) {
+	else if (_mode == MBProgressHUDModeCustomView && _customView != _indicator) {
 		// Update custom view indicator
-		[indicator removeFromSuperview];
-		self.indicator = customView;
-		[self addSubview:indicator];
-	} else if (mode == MBProgressHUDModeText) {
-		[indicator removeFromSuperview];
+		[_indicator removeFromSuperview];
+		self.indicator = _customView;
+		[self addSubview:_indicator];
+	} else if (_mode == MBProgressHUDModeText) {
+		[_indicator removeFromSuperview];
 		self.indicator = nil;
 	}
 }
@@ -532,10 +526,10 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	CGRect bounds = self.bounds;
 	
 	// Determine the total widt and height needed
-	CGFloat maxWidth = bounds.size.width - 4 * margin;
+	CGFloat maxWidth = bounds.size.width - 4 * _margin;
 	CGSize totalSize = CGSizeZero;
 	
-	CGRect indicatorF = indicator.bounds;
+	CGRect indicatorF = _indicator.bounds;
 	indicatorF.size.width = MIN(indicatorF.size.width, maxWidth);
 	totalSize.width = MAX(totalSize.width, indicatorF.size.width);
 	totalSize.height += indicatorF.size.height;
@@ -548,7 +542,7 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 		totalSize.height += kPadding;
 	}
 
-	CGFloat remainingHeight = bounds.size.height - totalSize.height - kPadding - 4 * margin; 
+	CGFloat remainingHeight = bounds.size.height - totalSize.height - kPadding - 4 * _margin;
 	CGSize maxSize = CGSizeMake(maxWidth, remainingHeight);
 	CGSize detailsLabelSize = MB_MULTILINE_TEXTSIZE(detailsLabel.text, detailsLabel.font, maxSize, detailsLabel.lineBreakMode);
 	totalSize.width = MAX(totalSize.width, detailsLabelSize.width);
@@ -557,15 +551,15 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 		totalSize.height += kPadding;
 	}
 	
-	totalSize.width += 2 * margin;
-	totalSize.height += 2 * margin;
+	totalSize.width += 2 * _margin;
+	totalSize.height += 2 * _margin;
 	
 	// Position elements
-	CGFloat yPos = round(((bounds.size.height - totalSize.height) / 2)) + margin + yOffset;
-	CGFloat xPos = xOffset;
+	CGFloat yPos = round(((bounds.size.height - totalSize.height) / 2)) + _margin + _yOffset;
+	CGFloat xPos = _xOffset;
 	indicatorF.origin.y = yPos;
 	indicatorF.origin.x = round((bounds.size.width - indicatorF.size.width) / 2) + xPos;
-	indicator.frame = indicatorF;
+	_indicator.frame = indicatorF;
 	yPos += indicatorF.size.height;
 	
 	if (labelSize.height > 0.f && indicatorF.size.height > 0.f) {
@@ -588,23 +582,23 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	detailsLabel.frame = detailsLabelF;
 	
 	// Enforce minsize and quare rules
-	if (square) {
+	if (_square) {
 		CGFloat max = MAX(totalSize.width, totalSize.height);
-		if (max <= bounds.size.width - 2 * margin) {
+		if (max <= bounds.size.width - 2 * _margin) {
 			totalSize.width = max;
 		}
-		if (max <= bounds.size.height - 2 * margin) {
+		if (max <= bounds.size.height - 2 * _margin) {
 			totalSize.height = max;
 		}
 	}
-	if (totalSize.width < minSize.width) {
-		totalSize.width = minSize.width;
+	if (totalSize.width < _minSize.width) {
+		totalSize.width = _minSize.width;
 	} 
-	if (totalSize.height < minSize.height) {
-		totalSize.height = minSize.height;
+	if (totalSize.height < _minSize.height) {
+		totalSize.height = _minSize.height;
 	}
 	
-	size = totalSize;
+	_size = totalSize;
 }
 
 #pragma mark BG Drawing
@@ -644,8 +638,8 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	// Center HUD
 	CGRect allRect = self.bounds;
 	// Draw rounded HUD backgroud rect
-	CGRect boxRect = CGRectMake(round((allRect.size.width - size.width) / 2) + self.xOffset,
-								round((allRect.size.height - size.height) / 2) + self.yOffset, size.width, size.height);
+	CGRect boxRect = CGRectMake(round((allRect.size.width - _size.width) / 2) + self.xOffset,
+								round((allRect.size.height - _size.height) / 2) + self.yOffset, _size.width, _size.height);
 	float radius = self.cornerRadius;
 	CGContextBeginPath(context);
 	CGContextMoveToPoint(context, CGRectGetMinX(boxRect) + radius, CGRectGetMinY(boxRect));
@@ -703,8 +697,8 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 	} else if ([keyPath isEqualToString:@"detailsLabelColor"]) {
 		detailsLabel.textColor = self.detailsLabelColor;
 	} else if ([keyPath isEqualToString:@"progress"]) {
-		if ([indicator respondsToSelector:@selector(setProgress:)]) {
-			[(id)indicator setValue:@(progress) forKey:@"progress"];
+		if ([_indicator respondsToSelector:@selector(setProgress:)]) {
+			[(id)_indicator setValue:@(_progress) forKey:@"progress"];
 		}
 		return;
 	}
@@ -784,6 +778,10 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 @implementation MBRoundProgressView
 
+AppearanceProperty(UIColor*, progressTintColor, progressTintColor, setProgressTintColor, progressTintColor)
+AppearanceProperty(UIColor*, backgroundTintColor, backgroundTintColor, setBackgroundTintColor, backgroundTintColor)
+AppearanceProperty(NSUInteger, annular, isAnnular, setAnnular, annular)
+
 #pragma mark - Lifecycle
 
 - (id)init {
@@ -806,11 +804,6 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 - (void)dealloc {
 	[self unregisterFromKVO];
-#if !__has_feature(objc_arc)
-	[_progressTintColor release];
-	[_backgroundTintColor release];
-	[super dealloc];
-#endif
 }
 
 #pragma mark - Drawing
@@ -890,6 +883,10 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 @implementation MBBarProgressView
 
+AppearanceProperty(UIColor*, lineColor, lineColor, setLineColor, lineColor)
+AppearanceProperty(UIColor*, progressRemainingColor, progressRemainingColor, setProgressRemainingColor, progressRemainingColor)
+AppearanceProperty(UIColor*, progressColor, progressColor, setProgressColor, progressColor)
+
 #pragma mark - Lifecycle
 
 - (id)init {
@@ -912,12 +909,6 @@ static const CGFloat kDetailsLabelFontSize = 12.f;
 
 - (void)dealloc {
 	[self unregisterFromKVO];
-#if !__has_feature(objc_arc)
-	[_lineColor release];
-	[_progressColor release];
-	[_progressRemainingColor release];
-	[super dealloc];
-#endif
 }
 
 #pragma mark - Drawing

@@ -66,27 +66,8 @@ typedef NS_ENUM(NSInteger, MBProgressHUDAnimation) {
 #endif
 #endif
 
-#ifndef MB_STRONG
-#if __has_feature(objc_arc)
-	#define MB_STRONG strong
-#else
-	#define MB_STRONG retain
-#endif
-#endif
 
-#ifndef MB_WEAK
-#if __has_feature(objc_arc_weak)
-	#define MB_WEAK weak
-#elif __has_feature(objc_arc)
-	#define MB_WEAK unsafe_unretained
-#else
-	#define MB_WEAK assign
-#endif
-#endif
-
-#if NS_BLOCKS_AVAILABLE
 typedef void (^MBProgressHUDCompletionBlock)();
-#endif
 
 
 /** 
@@ -238,8 +219,6 @@ typedef void (^MBProgressHUDCompletionBlock)();
  */
 - (void)showWhileExecuting:(SEL)method onTarget:(id)target withObject:(id)object animated:(BOOL)animated;
 
-#if NS_BLOCKS_AVAILABLE
-
 /**
  * Shows the HUD while a block is executing on a background queue, then hides the HUD.
  *
@@ -280,86 +259,84 @@ typedef void (^MBProgressHUDCompletionBlock)();
  */
 @property (copy) MBProgressHUDCompletionBlock completionBlock;
 
-#endif
-
 /** 
  * MBProgressHUD operation mode. The default is MBProgressHUDModeIndeterminate.
  *
  * @see MBProgressHUDMode
  */
-@property (assign) MBProgressHUDMode mode;
+@property (assign) MBProgressHUDMode mode UI_APPEARANCE_SELECTOR;
 
 /**
  * The animation type that should be used when the HUD is shown and hidden. 
  *
  * @see MBProgressHUDAnimation
  */
-@property (assign) MBProgressHUDAnimation animationType;
+@property (assign) MBProgressHUDAnimation animationType UI_APPEARANCE_SELECTOR;
 
 /**
  * The UIView (e.g., a UIImageView) to be shown when the HUD is in MBProgressHUDModeCustomView.
  * For best results use a 37 by 37 pixel view (so the bounds match the built in indicator bounds). 
  */
-@property (MB_STRONG) UIView *customView;
+@property (strong) UIView *customView;
 
 /** 
  * The HUD delegate object. 
  *
  * @see MBProgressHUDDelegate
  */
-@property (MB_WEAK) id<MBProgressHUDDelegate> delegate;
+@property (weak) id<MBProgressHUDDelegate> delegate;
 
 /** 
  * An optional short message to be displayed below the activity indicator. The HUD is automatically resized to fit
  * the entire text. If the text is too long it will get clipped by displaying "..." at the end. If left unchanged or
  * set to @"", then no message is displayed.
  */
-@property (copy) NSString *labelText;
+@property (copy) NSString *labelText UI_APPEARANCE_SELECTOR;
 
 /** 
  * An optional details message displayed below the labelText message. This message is displayed only if the labelText
  * property is also set and is different from an empty string (@""). The details text can span multiple lines. 
  */
-@property (copy) NSString *detailsLabelText;
+@property (copy) NSString *detailsLabelText UI_APPEARANCE_SELECTOR;
 
 /** 
  * The opacity of the HUD window. Defaults to 0.8 (80% opacity). 
  */
-@property (assign) float opacity;
+@property (assign) CGFloat opacity UI_APPEARANCE_SELECTOR;
 
 /**
  * The color of the HUD window. Defaults to black. If this property is set, color is set using
- * this UIColor and the opacity property is not used.  using retain because performing copy on
- * UIColor base colors (like [UIColor greenColor]) cause problems with the copyZone.
+ * this UIColor and the opacity property is not used.
  */
-@property (MB_STRONG) UIColor *color;
+@property (strong) UIColor *color UI_APPEARANCE_SELECTOR;
 
 /** 
  * The x-axis offset of the HUD relative to the centre of the superview. 
  */
-@property (assign) float xOffset;
+@property (assign) CGFloat xOffset UI_APPEARANCE_SELECTOR;
 
 /** 
  * The y-axis offset of the HUD relative to the centre of the superview. 
  */
-@property (assign) float yOffset;
+@property (assign) CGFloat yOffset UI_APPEARANCE_SELECTOR;
 
 /**
  * The amount of space between the HUD edge and the HUD elements (labels, indicators or custom views). 
  * Defaults to 20.0
  */
-@property (assign) float margin;
+@property (assign) CGFloat margin UI_APPEARANCE_SELECTOR;
 
 /**
  * The corner radius for the HUD
  * Defaults to 10.0
  */
-@property (assign) float cornerRadius;
+@property (assign) CGFloat cornerRadius UI_APPEARANCE_SELECTOR;
 
 /** 
- * Cover the HUD background view with a radial gradient. 
+ * Cover the HUD background view with a radial gradient. To support UIAppearance this boolean
+ * has the `NSUInteger` type, but should be treated as a `BOOL`.
  */
-@property (assign) BOOL dimBackground;
+@property (assign) NSUInteger dimBackground UI_APPEARANCE_SELECTOR;
 
 /*
  * Grace period is the time (in seconds) that the invoked method may be run without 
@@ -370,14 +347,14 @@ typedef void (^MBProgressHUDCompletionBlock)();
  * Grace time functionality is only supported when the task status is known!
  * @see taskInProgress
  */
-@property (assign) float graceTime;
+@property (assign) CGFloat graceTime UI_APPEARANCE_SELECTOR;
 
 /**
  * The minimum time (in seconds) that the HUD is shown. 
  * This avoids the problem of the HUD being shown and than instantly hidden.
  * Defaults to 0 (no minimum show time).
  */
-@property (assign) float minShowTime;
+@property (assign) CGFloat minShowTime UI_APPEARANCE_SELECTOR;
 
 /**
  * Indicates that the executed operation is in progress. Needed for correct graceTime operation.
@@ -390,36 +367,37 @@ typedef void (^MBProgressHUDCompletionBlock)();
 @property (assign) BOOL taskInProgress;
 
 /**
- * Removes the HUD from its parent view when hidden. 
+ * Removes the HUD from its parent view when hidden. To support UIAppearance this boolean
+ * has the `NSUInteger` type, but should be treated as a `BOOL`.
  * Defaults to NO. 
  */
-@property (assign) BOOL removeFromSuperViewOnHide;
+@property (assign) NSUInteger removeFromSuperViewOnHide UI_APPEARANCE_SELECTOR;
 
 /** 
  * Font to be used for the main label. Set this property if the default is not adequate. 
  */
-@property (MB_STRONG) UIFont* labelFont;
+@property (strong) UIFont* labelFont UI_APPEARANCE_SELECTOR;
 
 /**
  * Color to be used for the main label. Set this property if the default is not adequate.
  */
-@property (MB_STRONG) UIColor* labelColor;
+@property (strong) UIColor* labelColor UI_APPEARANCE_SELECTOR;
 
 /**
  * Font to be used for the details label. Set this property if the default is not adequate.
  */
-@property (MB_STRONG) UIFont* detailsLabelFont;
+@property (strong) UIFont* detailsLabelFont UI_APPEARANCE_SELECTOR;
 
 /** 
  * Color to be used for the details label. Set this property if the default is not adequate.
  */
-@property (MB_STRONG) UIColor* detailsLabelColor;
+@property (strong) UIColor* detailsLabelColor UI_APPEARANCE_SELECTOR;
 
 /**
  * The color of the activity indicator. Defaults to [UIColor whiteColor]
  * Does nothing on pre iOS 5.
  */
-@property (MB_STRONG) UIColor *activityIndicatorColor;
+@property (strong) UIColor *activityIndicatorColor UI_APPEARANCE_SELECTOR;
 
 /** 
  * The progress of the progress indicator, from 0.0 to 1.0. Defaults to 0.0. 
@@ -429,7 +407,7 @@ typedef void (^MBProgressHUDCompletionBlock)();
 /**
  * The minimum size of the HUD bezel. Defaults to CGSizeZero (no minimum size).
  */
-@property (assign) CGSize minSize;
+@property (assign) CGSize minSize UI_APPEARANCE_SELECTOR;
 
 
 /**
@@ -441,9 +419,10 @@ typedef void (^MBProgressHUDCompletionBlock)();
 
 
 /**
- * Force the HUD dimensions to be equal if possible. 
+ * Force the HUD dimensions to be equal if possible. To support UIAppearance this boolean
+ * has the `NSUInteger` type, but should be treated as a `BOOL`.
  */
-@property (assign, getter = isSquare) BOOL square;
+@property (assign, getter = isSquare) NSUInteger square;
 
 @end
 
@@ -474,18 +453,20 @@ typedef void (^MBProgressHUDCompletionBlock)();
  * Indicator progress color.
  * Defaults to white [UIColor whiteColor]
  */
-@property (nonatomic, MB_STRONG) UIColor *progressTintColor;
+@property (nonatomic, strong) UIColor *progressTintColor UI_APPEARANCE_SELECTOR;
 
 /**
  * Indicator background (non-progress) color.
  * Defaults to translucent white (alpha 0.1)
  */
-@property (nonatomic, MB_STRONG) UIColor *backgroundTintColor;
+@property (nonatomic, strong) UIColor *backgroundTintColor UI_APPEARANCE_SELECTOR;
 
 /*
- * Display mode - NO = round or YES = annular. Defaults to round.
+ * Display mode - NO = round or YES = annular. Defaults to round.  To support 
+ * UIAppearance this boolean has the `NSUInteger` type, but should be treated
+ * as a `BOOL`.
  */
-@property (nonatomic, assign, getter = isAnnular) BOOL annular;
+@property (nonatomic, assign, getter = isAnnular) NSUInteger annular UI_APPEARANCE_SELECTOR;
 
 @end
 
@@ -504,18 +485,18 @@ typedef void (^MBProgressHUDCompletionBlock)();
  * Bar border line color.
  * Defaults to white [UIColor whiteColor].
  */
-@property (nonatomic, MB_STRONG) UIColor *lineColor;
+@property (nonatomic, strong) UIColor *lineColor UI_APPEARANCE_SELECTOR;
 
 /**
  * Bar background color.
  * Defaults to clear [UIColor clearColor];
  */
-@property (nonatomic, MB_STRONG) UIColor *progressRemainingColor;
+@property (nonatomic, strong) UIColor *progressRemainingColor UI_APPEARANCE_SELECTOR;
 
 /**
  * Bar progress color.
  * Defaults to white [UIColor whiteColor].
  */
-@property (nonatomic, MB_STRONG) UIColor *progressColor;
+@property (nonatomic, strong) UIColor *progressColor UI_APPEARANCE_SELECTOR;
 
 @end
